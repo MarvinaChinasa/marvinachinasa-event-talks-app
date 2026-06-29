@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigQuery Release Notes Explorer</title>
+    <meta name="description" content="A premium, interactive dashboard for exploring, filtering, and bookmarking Google Cloud BigQuery release notes.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="background-glows">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-container">
+                    <i data-lucide="database" class="logo-icon"></i>
+                    <div class="logo-pulse"></div>
+                </div>
+                <div class="title-container">
+                    <h1>BigQuery <span class="gradient-text">Release Notes</span></h1>
+                    <p class="subtitle">Real-time updates, features, and changes tracker</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span id="last-updated-text">Checking feed...</span>
+                </div>
+                <button id="refresh-btn" class="btn btn-primary" title="Refresh release notes">
+                    <i data-lucide="refresh-cw" class="icon-spin-hover"></i>
+                    <span>Sync</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <section class="stats-grid">
+            <div class="stat-card" data-type="all">
+                <div class="stat-icon-wrapper">
+                    <i data-lucide="layers"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-total">0</h3>
+                    <p>Total Updates</p>
+                </div>
+            </div>
+            <div class="stat-card" data-type="feature">
+                <div class="stat-icon-wrapper feat">
+                    <i data-lucide="sparkles"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-features">0</h3>
+                    <p>Features</p>
+                </div>
+            </div>
+            <div class="stat-card" data-type="change">
+                <div class="stat-icon-wrapper chg">
+                    <i data-lucide="shuffle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-changes">0</h3>
+                    <p>Changes</p>
+                </div>
+            </div>
+            <div class="stat-card" data-type="deprecation">
+                <div class="stat-icon-wrapper dep">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="stat-deprecations">0</h3>
+                    <p>Deprecations</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters & Search -->
+        <section class="control-panel">
+            <div class="search-box">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search release notes, features, functions...">
+                <button id="clear-search" class="clear-btn" style="display: none;">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="filter-row">
+                <div class="filter-group">
+                    <span class="filter-label">Filter:</span>
+                    <div class="filter-pills" id="type-filters">
+                        <button class="pill active" data-filter="all">All</button>
+                        <button class="pill" data-filter="feature">Features</button>
+                        <button class="pill" data-filter="change">Changes</button>
+                        <button class="pill" data-filter="deprecation">Deprecations</button>
+                        <button class="pill" data-filter="other">Others</button>
+                    </div>
+                </div>
+
+                <div class="action-group">
+                    <button id="bookmark-toggle-btn" class="btn btn-secondary btn-toggle" title="Show Bookmarks Only">
+                        <i data-lucide="star"></i>
+                        <span>Bookmarks (<span id="bookmark-count">0</span>)</span>
+                    </button>
+                    <div class="sort-selector">
+                        <i data-lucide="arrow-up-down"></i>
+                        <select id="sort-select">
+                            <option value="desc">Newest First</option>
+                            <option value="asc">Oldest First</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Feed -->
+        <main class="feed-container">
+            <!-- Loading Skeletons -->
+            <div id="loading-container" class="loading-container">
+                <div class="skeleton-card">
+                    <div class="skeleton-header">
+                        <div class="skeleton-title"></div>
+                        <div class="skeleton-date"></div>
+                    </div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line short"></div>
+                    </div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-header">
+                        <div class="skeleton-title"></div>
+                        <div class="skeleton-date"></div>
+                    </div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line short"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actual Feed Content -->
+            <div id="notes-feed" class="notes-feed" style="display: none;"></div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <i data-lucide="frown" class="empty-icon"></i>
+                <h2>No release notes found</h2>
+                <p>Try adjusting your search query, filters, or check if you have bookmarked items.</p>
+                <button id="reset-filters-btn" class="btn btn-primary">Reset Filters</button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>BigQuery Release Notes Explorer &bull; Built with Flask &amp; Vanilla CSS/JS</p>
+            <div class="footer-links">
+                <a href="https://cloud.google.com/bigquery/docs/release-notes" target="_blank" rel="noopener noreferrer">
+                    Official Release Notes <i data-lucide="external-link"></i>
+                </a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Custom Javascript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
