@@ -1,6 +1,7 @@
 // Application State
 let state = {
     entries: [],          // Raw feed data
+    filteredEntries: [],  // Filtered feed data
     bookmarks: new Set(), // Set of bookmarked update IDs
     filters: {
         type: 'all',      // 'all', 'feature', 'change', 'deprecation', 'other'
@@ -24,6 +25,7 @@ const elements = {
     notesFeed: document.getElementById('notes-feed'),
     emptyState: document.getElementById('empty-state'),
     resetFiltersBtn: document.getElementById('reset-filters-btn'),
+    exportCsvBtn: document.getElementById('export-csv-btn'),
     // Stats
     statTotal: document.getElementById('stat-total'),
     statFeatures: document.getElementById('stat-features'),
@@ -112,6 +114,9 @@ function setupEventListeners() {
         state.sort = e.target.value;
         renderFeed();
     });
+
+    // Export CSV
+    elements.exportCsvBtn.addEventListener('click', exportToCSV);
 
     // Reset Filters Button
     elements.resetFiltersBtn.addEventListener('click', resetFilters);
@@ -254,9 +259,11 @@ function renderFeed() {
 
     // Render HTML
     if (filteredEntries.length === 0) {
+        state.filteredEntries = [];
         elements.notesFeed.style.display = 'none';
         elements.emptyState.style.display = 'flex';
     } else {
+        state.filteredEntries = filteredEntries;
         elements.notesFeed.style.display = 'block';
         elements.emptyState.style.display = 'none';
 
@@ -282,6 +289,9 @@ function renderFeed() {
                                         <div class="card-actions">
                                             <button class="card-action-btn tweet-btn" title="Tweet about this update" onclick="event.stopPropagation(); tweetUpdate('${entry.date}', '${update.type}', ${origIndex})">
                                                 <i data-lucide="twitter"></i>
+                                            </button>
+                                            <button class="card-action-btn copy-btn" title="Copy update text" onclick="event.stopPropagation(); copyUpdateText('${entry.date}', ${origIndex})">
+                                                <i data-lucide="copy"></i>
                                             </button>
                                             <button class="card-action-btn share-btn" title="Copy link to clipboard" onclick="event.stopPropagation(); copyShareLink('${entry.date}', '${entry.link}')">
                                                 <i data-lucide="share-2"></i>
@@ -345,15 +355,19 @@ window.toggleCardSelection = function(event, id) {
     }
 };
 
-// Bookmark Toggle Handler
-window.toggleBookmark = function(id) {
-    if (state.bookmarks.has(id)) {
-        state.bookmarks.delete(id);
-    } else {
-        state.bookmarks.add(id);
-    }
-    saveBookmarks();
-    renderFeed();
+// Copy Update Text Handler
+window.copyUpdateText = function(date, index) {
+    const entry = state.entries.find(e => e.date === date);
+    if (!entry) return;
+    const update = entry.updates[index];
+    if (!update) return;
+
+    const plainText = stripHtml(update.content);
+    navigator.clipboard.writeText(plainText).then(() => {
+        showToast('Update text copied!');
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+    });
 };
 
 // Copy Share Link Handler
@@ -375,10 +389,7 @@ window.tweetUpdate = function(date, type, index) {
     if (!update) return;
 
     // Strip HTML tags from content
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = update.content;
-    let plainText = tempDiv.textContent || tempDiv.innerText || '';
-    plainText = plainText.replace(/\s+/g, ' ').trim();
+    const plainText = stripHtml(update.content);
 
     // Prepare Tweet text
     const prefix = `BigQuery ${type} (${date}): `;
@@ -400,6 +411,54 @@ window.tweetUpdate = function(date, type, index) {
     
     window.open(twitterUrl, '_blank', 'noopener,noreferrer');
 };
+
+// Export current filtered entries to CSV
+function exportToCSV() {
+    if (!state.filteredEntries || state.filteredEntries.length === 0) {
+        showToast('No release notes to export.');
+        return;
+    }
+
+    let csvContent = 'Date,Type,Content,Link\r\n';
+
+    state.filteredEntries.forEach(entry => {
+        const dateStr = entry.date;
+        const linkStr = entry.link || '';
+        
+        entry.updates.forEach(update => {
+            const typeStr = update.type;
+            
+            // Strip HTML and escape double quotes for CSV compatibility
+            const rawContent = stripHtml(update.content);
+            const escapedContent = rawContent.replace(/"/g, '""');
+            
+            csvContent += `"${dateStr}","${typeStr}","${escapedContent}","${linkStr}"\r\n`;
+        });
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    
+    // Format date for filename
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.setAttribute('download', `bigquery_release_notes_${dateStamp}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Exported to CSV successfully!');
+}
+
+// Utility to strip HTML tags
+function stripHtml(html) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+}
 
 // Simple Toast Notification helper
 function showToast(message) {

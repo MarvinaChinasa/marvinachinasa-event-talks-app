@@ -595,6 +595,11 @@ body {
     background: rgba(29, 161, 242, 0.1);
 }
 
+.card-action-btn.copy-btn:hover {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+}
+
 .card-action-btn.share-btn:hover {
     color: #3b82f6;
     background: rgba(59, 130, 246, 0.1);
